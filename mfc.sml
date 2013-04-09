@@ -6,12 +6,10 @@ type mfc = RealVector.vector
 fun read is = 
     let
         val binaryMarker = KaldiInput.readBinaryMarker is
-        val mtx = KaldiInput.readRealMatrix is
+        val mtx = KaldiInput.readRealArray2 is
     in
-        List.tabulate (Matrix.nRows mtx,
-                       fn i =>
-                          RealVector.tabulate (Matrix.nCols mtx,
-                                               fn j => Matrix.sub (mtx, i, j)))
+        List.tabulate (RealArray2.nRows mtx,
+                       fn i => RealArray2.row (mtx, i))
     end
 
 fun subCmn [] = []

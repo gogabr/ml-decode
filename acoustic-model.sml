@@ -33,8 +33,8 @@ datatype transitionModel = TransitionModel of {
 datatype diagGmm = DiagGmm of {
                      consts : RealVector.vector,
                      weights : RealVector.vector,
-                     invVars : real Matrix.matrix,
-                     meansInvVars : real Matrix.matrix
+                     invVars : RealArray2.array,
+                     meansInvVars : RealArray2.array
                  }
 
 datatype t = AcousticModel of transitionModel * diagGmm vector
@@ -172,14 +172,13 @@ fun readTransitionModel is =
 
 fun computeConsts weights invVars meansInvVars =
     let
-        val nummix = Matrix.nRows invVars
-        val dim = Matrix.nCols invVars
+        val (nummix, dim) = RealArray2.dimensions invVars
         val offset = ~0.5 * Math.ln (2.0 * Math.pi) * Real.fromInt dim
 
         fun doGc (mix, d) = 
             let
-                val iv = Matrix.sub (invVars, mix, d)
-                val miv = Matrix.sub (meansInvVars, mix, d)
+                val iv = RealArray2.sub (invVars, mix, d)
+                val miv = RealArray2.sub (meansInvVars, mix, d)
             in
                 0.5 * Math.ln iv - 0.5 * miv * miv / iv
             end
@@ -211,9 +210,9 @@ fun readDiagGmm is =
         val markerWght = KaldiInput.expectString (is, "<WEIGHTS> ")
         val weights = KaldiInput.readRealVector is
         val markerMIV = KaldiInput.expectString (is, "<MEANS_INVVARS> ")
-        val meansInvVars = KaldiInput.readRealMatrix is
+        val meansInvVars = KaldiInput.readRealArray2 is
         val markerIV = KaldiInput.expectString (is, "<INV_VARS> ") 
-        val invVars = KaldiInput.readRealMatrix is
+        val invVars = KaldiInput.readRealArray2 is
         val markerEd = KaldiInput.expectString (is, "</DiagGMM> ")
         val consts = computeConsts weights invVars meansInvVars
     in
@@ -272,8 +271,7 @@ fun logProb _ 0 feas = Real.negInf
                 val meansInvVars = #meansInvVars dgmm
                 val consts = #consts dgmm
 
-                val nmix = Matrix.nRows invVars
-                val dim = Matrix.nCols invVars
+                val (nmix, dim) = RealArray2.dimensions invVars
 
                 val prob = repeat 
                                (fn (m, acc) => 
@@ -283,8 +281,8 @@ fun logProb _ 0 feas = Real.negInf
                                                    (fn (i, acc2) =>
                                                        let
                                                            val fv = RealVector.sub (feas, i)
-                                                           val miv = Matrix.sub (meansInvVars, m, i)
-                                                           val iv = Matrix.sub (invVars, m, i)
+                                                           val miv = RealArray2.sub (meansInvVars, m, i)
+                                                           val iv = RealArray2.sub (invVars, m, i)
                                                        in
                                                            acc2 
                                                            + miv * fv

@@ -12,6 +12,6 @@ val readWord32 : BinIO.instream -> Word32.word
 val readReal : BinIO.instream -> real
 val readInt32Vector : BinIO.instream -> Int32Vector.vector
 val readRealVector : BinIO.instream -> RealVector.vector
-val readRealMatrix : BinIO.instream -> real Matrix.matrix
+val readRealArray2 : BinIO.instream -> RealArray2.array
 
 end

@@ -59,15 +59,15 @@ fun readRealVector is =
         RealVector.tabulate (sz, fn _ => real32toReal (ReadBin.rf32l is))
     end
 
-fun readRealMatrix is =
+fun readRealArray2 is =
     let
         val marker = expectString (is, "FM ")
         val rows = readInt32 is
         val cols = readInt32 is
     in
-        Matrix.create (rows, cols, Vector.tabulate 
-                                       (rows * cols,
-                                        fn _ => (real32toReal (ReadBin.rf32l is))))
+        RealArray2.tabulate Array2.RowMajor 
+                            (rows, cols, fn (row, col) =>
+                                            real32toReal (ReadBin.rf32l is))
     end
 
 end

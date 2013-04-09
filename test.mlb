@@ -5,9 +5,6 @@
 /usr/lib/mlton/sml/smlnj-lib/Util/iterate-sig.sml
 /usr/lib/mlton/sml/smlnj-lib/Util/iterate.sml
 
-matrix.sig
-matrix.sml
-
 util.sig
 util.sml
 
