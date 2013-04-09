@@ -81,9 +81,7 @@ fun pathExtend (Path (s, e, oas, w), na, auxw) =
 fun doNonEps (cfg: config, am, fst) (mfc, pl) =
    let 
        val amScale = #amScale cfg
-
-       val logProb = Util.memoize (fn tid =>
-                                      AcousticModel.logProb am tid mfc)
+       val logProb = AcousticModel.memoizeLogProb (am, mfc)
    in
        List.concat 
            (map (fn p =>

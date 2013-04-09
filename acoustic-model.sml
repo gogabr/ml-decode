@@ -245,57 +245,75 @@ fun read is =
         then raise KaldiInput.BadFile "extra material after end of acoustic model"
         else AcousticModel (transitionModel, diagGmms)
     end
+        
+fun tid2dgmmId (AcousticModel (TransitionModel tm, _), tid) =
+    let 
+        val triples = #triples tm
+                               
+        val id2state = #id2state tm
+                                     
+        val Triple tr = 
+            (Vector.sub (triples, Int32Vector.sub (id2state, tid) - 1))
+    in
+        (**)(* print ("tid2dgmmId " ^ Int.toString tid ^ " = " ^ Int.toString (#pdf tr) ^ "\n"); *)
+        #pdf tr
+    end
+
+fun gmmLogProb (DiagGmm dgmm, feas) =
+    let
+        val invVars = #invVars dgmm
+        val meansInvVars = #meansInvVars dgmm
+        val consts = #consts dgmm
+                             
+        val (nmix, dim) = RealArray2.dimensions invVars
+                                                
+        val prob = repeat 
+                       (fn (m, acc) => 
+                           acc +
+                           Math.exp (RealVector.sub (consts, m)
+                                     + repeat 
+                                           (fn (i, acc2) =>
+                                               let
+                                                   val fv = RealVector.sub (feas, i)
+                                                   val miv = RealArray2.sub (meansInvVars, m, i)
+                                                   val iv = RealArray2.sub (invVars, m, i)
+                                               in
+                                                   acc2 
+                                                   + miv * fv
+                                                   - 0.5 * iv * fv * fv
+                                               end)
+                                           dim
+                                           0.0))
+                       nmix
+                       0.0
+    in
+        Math.ln prob
+    end
+
 
 fun logProb _ 0 feas = Real.negInf
-  | logProb (AcousticModel (TransitionModel tm, dgmms)) tid feas =
+  | logProb am tid feas =
     let
-        val triples = #triples tm
-
-        val id2state = #id2state tm
-
-        fun tid2dgmmId tid =
-            let 
-                val Triple tr = 
-                    (Vector.sub (triples, Int32Vector.sub (id2state, tid) - 1))
-            in
-              (**)(* print ("tid2dgmmId " ^ Int.toString tid ^ " = " ^ Int.toString (#pdf tr) ^ "\n"); *)
-              #pdf tr
-            end
-
-        fun tid2dgmm tid =
-            Vector.sub (dgmms, tid2dgmmId tid)
-
-        fun gmmLogProb (DiagGmm dgmm, feas) =
-            let
-                val invVars = #invVars dgmm
-                val meansInvVars = #meansInvVars dgmm
-                val consts = #consts dgmm
-
-                val (nmix, dim) = RealArray2.dimensions invVars
-
-                val prob = repeat 
-                               (fn (m, acc) => 
-                                   acc +
-                                   Math.exp (RealVector.sub (consts, m)
-                                             + repeat 
-                                                   (fn (i, acc2) =>
-                                                       let
-                                                           val fv = RealVector.sub (feas, i)
-                                                           val miv = RealArray2.sub (meansInvVars, m, i)
-                                                           val iv = RealArray2.sub (invVars, m, i)
-                                                       in
-                                                           acc2 
-                                                           + miv * fv
-                                                           - 0.5 * iv * fv * fv
-                                                       end)
-                                                   dim
-                                                   0.0))
-                               nmix
-                               0.0
-            in
-                Math.ln prob
-            end
+        val AcousticModel (_, dgmms) = am
+                                           
+        fun tid2dgmm (AcousticModel (_, dgmms), tid) =
+            Vector.sub (dgmms, tid2dgmmId (am, tid))
     in
-        gmmLogProb (tid2dgmm tid, feas)
+        gmmLogProb (tid2dgmm (am, tid), feas)
     end
+
+fun memoizeLogProb (am, feas) =
+    let
+        val AcousticModel (_, dgmms) = am
+
+        val memoFn = Util.memoize
+                         (fn dgmmId =>
+                             gmmLogProb (Vector.sub (dgmms, dgmmId), feas))
+    in
+        fn tid => 
+           if tid = 0 
+           then Real.negInf
+           else memoFn (tid2dgmmId (am, tid))
+    end
+
 end
