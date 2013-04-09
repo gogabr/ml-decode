@@ -153,15 +153,15 @@ fun prune (cfg: config) pl =
               end)
     end
 
-fun fwIniState (cfg: config, fst) =
+fun vtIniState (cfg: config, fst) =
    (prune cfg o doEps fst) [zeroPath fst]
 
-fun fwStep (cfg: config, am, fst) (mfc, pl) =
+fun vtStep (cfg: config, am, fst) (mfc, pl) =
    (prune cfg o doEps fst o doNonEps (cfg, am, fst)) (mfc, pl)
 
-fun forward (cfg: config, am, fst) mfcl =
-   foldl (fwStep (cfg, am, fst))
-         (fwIniState (cfg, fst))
+fun viterbi (cfg: config, am, fst) mfcl =
+   foldl (vtStep (cfg, am, fst))
+         (vtIniState (cfg, fst))
          mfcl
 
 fun backtrackFinals [] = raise Size
@@ -184,6 +184,6 @@ fun pOutputs wl p =
                     (rev (pArcs p)))
 
 fun decode (cfg: config, am, fst, wl) mfcl =
-   (pOutputs wl o backtrack fst o forward (cfg, am, fst)) mfcl
+   (pOutputs wl o backtrack fst o viterbi (cfg, am, fst)) mfcl
 
 end
