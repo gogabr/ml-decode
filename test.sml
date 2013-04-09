@@ -1,7 +1,20 @@
-val isAm = BinIO.openIn "/home/gogabr/data/models/final.mdl";
-val isFst = BinIO.openIn "/home/gogabr/data/models/HCLG-const.fst";
-val isWl = TextIO.openIn "/home/gogabr/data/models/word_table.txt";
-val isMfc = BinIO.openIn "/home/gogabr/data/wav8/filmy8.mfcd";
+
+local
+    val argv = CommandLine.arguments ()
+
+    val _ = if length argv <> 5
+            then
+                ( print "Usage: decode config acoustic-model fst wordlist mfc\n"
+                ; OS.Process.exit OS.Process.failure)
+            else ()
+in  
+    val isCfg = TextIO.openIn (List.nth (argv, 0))
+    val isAm = BinIO.openIn (List.nth (argv, 1))
+    val isFst = BinIO.openIn (List.nth (argv, 2))
+    val isWl = TextIO.openIn (List.nth (argv, 3))
+    val isMfc = BinIO.openIn (List.nth (argv, 4))
+end;
+
 print "Opened\n";
 
 let
@@ -16,6 +29,7 @@ let
             Vector.fromList (rev (collectLines is []))
         end
 
+    val cfg = Decoder.readConfig isCfg;
     val am = AcousticModel.read isAm
     val fst = Fst.readFst isFst
     val wl = readWordList isWl
@@ -24,11 +38,22 @@ in
     print (Fst.headerToString (Fst.header fst) ^ "\n");
     print ("nframes: " ^ Int.toString (length mfcs) ^ "\n");
     print ("nwords: " ^ Int.toString (Vector.length wl) ^ "\n");
-    app (fn w => print (w ^ "\n")) 
-        (Decoder.decode (Decoder.defaultConfig, am, fst, wl) mfcs);
-    print "QQ\n"
+
+    let
+        val timer = Timer.startRealTimer ()
+    in
+        app (fn w => print (w ^ " ")) 
+            (Decoder.decode (Decoder.defaultConfig, am, fst, wl) mfcs);
+        print "\n";
+        print ("Time: " 
+               ^ (LargeInt.toString o Time.toMilliseconds) (Timer.checkRealTimer timer)
+               ^ " msec\n");
+        print ("Hits: " ^ Int.toString (Util.memoizeHits ())
+               ^ ", misses: " ^ Int.toString (Util.memoizeMisses ()) ^ "\n")
+    end
 end;
 
+TextIO.closeIn isCfg;
 BinIO.closeIn isAm;
 BinIO.closeIn isFst;
 TextIO.closeIn isWl;
