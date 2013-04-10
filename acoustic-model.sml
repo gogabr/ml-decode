@@ -139,12 +139,12 @@ fun computeDerived (topology, triples) =
                           (List.tabulate 
                                (1 + Vector.length triples,
                                 (fn i => Int32Vector.tabulate (numIds i,
-                                                               fn _ => i))))
+                                                               Util.const i))))
         val lids = 0 :: rev (foldl (fn (i, acc) =>
                                        (hd acc + numIds (i+1)) :: acc)
                                    [1]
                                    (List.tabulate (Vector.length triples, 
-                                                   fn i => i)))
+                                                   Util.identity)))
 
     in
         (Int32Vector.fromList lids, vstates)

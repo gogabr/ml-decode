@@ -31,4 +31,8 @@ end
 fun vectorToList v =
     List.tabulate (Vector.length v, fn i => Vector.sub (v,i))
 
+fun const x y = x
+
+fun identity x = x
+
 end
