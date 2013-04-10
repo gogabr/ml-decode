@@ -193,7 +193,7 @@ fun stateArcs (fst: fst, sid) =
         val arcs = #arcs fst
         val state = Vector.sub (states, sid)
     in
-        VectorSlice.vector (VectorSlice.slice (arcs, #pos state, SOME (#narcs state)))
+        VectorSlice.slice (arcs, #pos state, SOME (#narcs state))
     end
 
 fun arcDest (arc: arc) = #dest arc

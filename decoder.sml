@@ -94,7 +94,7 @@ fun doNonEps (cfg: config, am, fst) (mfc, pl) =
                                 then NONE
                                 else SOME (pathExtend (p, a,
                                                        (~amScale * logProb (Fst.arcILabel a - 1)))))
-                            (Util.vectorToList outArcs)
+                            (Util.vectorSliceToList outArcs)
                     end)
                    pl)
    end
@@ -121,7 +121,7 @@ fun doEps fst pl =
             let
                 val e = pEnd p
             in
-                Vector.app (doArc p) (Fst.stateArcs (fst, e))
+                VectorSlice.app (doArc p) (Fst.stateArcs (fst, e))
             end         
     in
         ( app insertIfBetter pl

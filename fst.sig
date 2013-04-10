@@ -16,7 +16,7 @@ sig
                                 
     val stateIsFinal: fst * int -> bool
     val stateFinalWeight: fst * int -> real
-    val stateArcs: fst * int -> arc vector
+    val stateArcs: fst * int -> arc VectorSlice.slice
 
     val arcIsEpsilon: arc -> bool
     val arcDest: arc -> int
