@@ -101,30 +101,31 @@ fun doNonEps (cfg: config, am, fst) (mfc, pl) =
 
 fun doEps fst pl =
     let
-        fun insertIfBetter (np, ibm) = 
-            let
-                val oop = IntBinaryMap.find (ibm, pEnd np)
-            in
-                case oop of
-                    NONE => doPath (np, ibm)
-                 |  SOME oldp => if pLess (oldp, np)
-                                 then ibm
-                                 else doPath (np, ibm)
-            end
-        and doArc p (a, ibm) =
+        val ht = IntHashTable.mkTable (8000, Fail "hash")
+
+        fun insertIfBetter np = 
+            case IntHashTable.find ht (pEnd np) of
+                NONE => 
+                   ( IntHashTable.insert ht (pEnd np, np)
+                   ; doPath np)
+             |  SOME oldp =>
+                   if pLess (oldp, np)
+                   then ()
+                   else ( IntHashTable.insert ht (pEnd np, np)
+                        ; doPath np)
+        and doArc p a =
             if (not o Fst.arcIsEpsilon) a
-            then ibm
-            else doPath (pathExtend (p, a, 0.0), ibm)
-        and doPath (p, ibm) =
+            then ()
+            else insertIfBetter (pathExtend (p, a, 0.0))
+        and doPath p =
             let
                 val e = pEnd p
             in
-                Vector.foldl (doArc p)
-                             (IntBinaryMap.insert (ibm, e, p))
-                             (Fst.stateArcs (fst, e))
+                Vector.app (doArc p) (Fst.stateArcs (fst, e))
             end         
     in
-        IntBinaryMap.listItems (foldl insertIfBetter IntBinaryMap.empty pl)
+        ( app insertIfBetter pl
+        ; IntHashTable.listItems ht)
     end
 
 fun prune (cfg: config) pl =
