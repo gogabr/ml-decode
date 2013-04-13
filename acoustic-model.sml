@@ -306,14 +306,15 @@ fun memoizeLogProb (am, feas) =
     let
         val AcousticModel (_, dgmms) = am
 
-        val memoFn = Util.memoize
-                         (fn dgmmId =>
-                             gmmLogProb (Vector.sub (dgmms, dgmmId), feas))
+        val memoTab = RealVector.tabulate
+                          (Vector.length dgmms,
+                           fn dgmmId =>
+                              gmmLogProb (Vector.sub (dgmms, dgmmId), feas))
     in
         fn tid => 
            if tid = 0 
            then Real.negInf
-           else memoFn (tid2dgmmId (am, tid))
+           else RealVector.sub (memoTab, tid2dgmmId (am, tid))
     end
 
 end
