@@ -34,7 +34,7 @@ type arc = {
 type fst = {
     header : header,
     states : state vector,
-    arcs : (arc list * arc list) vector
+    arcs : (arc vector * arc vector) vector
 }
 
 val magic = 0w2125659606
@@ -163,8 +163,8 @@ fun readArcs (is, fh:header, states) =
             let
                 val state = Vector.sub (states, st)
                 val allStateArcs = Util.vectorSliceToList (VectorSlice.slice (allArcs, #pos state, SOME (#narcs state)))
-                val nonEpsArcs = List.filter (not o arcIsEpsilon) allStateArcs
-                val epsArcs = List.filter arcIsEpsilon allStateArcs
+                val nonEpsArcs = Vector.fromList (List.filter (not o arcIsEpsilon) allStateArcs)
+                val epsArcs = Vector.fromList (List.filter arcIsEpsilon allStateArcs)
             in
                 (nonEpsArcs, epsArcs)
             end

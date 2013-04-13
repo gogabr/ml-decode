@@ -83,12 +83,12 @@ fun doNonEps (cfg: config, am, fst) (mfc, pl) =
        val amScale = #amScale cfg
        val logProb = AcousticModel.memoizeLogProb (am, mfc)
    in
-       List.concat 
+       Vector.concat 
            (map (fn p =>
                     let
                         val outArcs = Fst.stateNonEpsArcs (fst, pEnd p)
                     in
-                        List.map
+                        Vector.map
                             (fn a =>
                                 (pathExtend (p, a,
                                              (~amScale * logProb (Fst.arcILabel a - 1)))))
@@ -117,10 +117,10 @@ fun doEps fst pl =
             let
                 val e = pEnd p
             in
-                List.app (doArc p) (Fst.stateEpsArcs (fst, e))
+                Vector.app (doArc p) (Fst.stateEpsArcs (fst, e))
             end         
     in
-        ( app insertIfBetter pl
+        ( Vector.app insertIfBetter pl
         ; IntHashTable.listItems ht)
     end
 
@@ -151,7 +151,7 @@ fun prune (cfg: config) pl =
     end
 
 fun vtIniState (cfg: config, fst) =
-   (prune cfg o doEps fst) [zeroPath fst]
+   (prune cfg o doEps fst o Vector.fromList) [zeroPath fst]
 
 fun vtStep (cfg: config, am, fst) (mfc, pl) =
    (prune cfg o doEps fst o doNonEps (cfg, am, fst)) (mfc, pl)
