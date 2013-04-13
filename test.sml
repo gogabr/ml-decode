@@ -52,9 +52,7 @@ in
                    ^ (LargeInt.toString realMsec)
                    ^ " msec; RTF "
                    ^ (Real.toString (Real.fromLargeInt realMsec / 10.0 / Real.fromInt (length mfcs)))
-                   ^ "\n");
-            print ("Hits: " ^ Int.toString (Util.memoizeHits ())
-                   ^ ", misses: " ^ Int.toString (Util.memoizeMisses ()) ^ "\n")
+                   ^ "\n")
         end
     end
 end;
