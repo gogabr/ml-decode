@@ -40,16 +40,22 @@ in
     print ("nwords: " ^ Int.toString (Vector.length wl) ^ "\n");
 
     let
-        val timer = Timer.startRealTimer ()
+        val timerReal = Timer.startRealTimer ()
     in
         app (fn w => print (w ^ " ")) 
             (Decoder.decode (Decoder.defaultConfig, am, fst, wl) mfcs);
         print "\n";
-        print ("Time: " 
-               ^ (LargeInt.toString o Time.toMilliseconds) (Timer.checkRealTimer timer)
-               ^ " msec\n");
-        print ("Hits: " ^ Int.toString (Util.memoizeHits ())
-               ^ ", misses: " ^ Int.toString (Util.memoizeMisses ()) ^ "\n")
+        let 
+            val realMsec = (Time.toMilliseconds o Timer.checkRealTimer) timerReal
+        in
+            print ("Time: real " 
+                   ^ (LargeInt.toString realMsec)
+                   ^ " msec; RTF "
+                   ^ (Real.toString (Real.fromLargeInt realMsec / 10.0 / Real.fromInt (length mfcs)))
+                   ^ "\n");
+            print ("Hits: " ^ Int.toString (Util.memoizeHits ())
+                   ^ ", misses: " ^ Int.toString (Util.memoizeMisses ()) ^ "\n")
+        end
     end
 end;
 

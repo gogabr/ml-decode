@@ -39,7 +39,7 @@ fun readConfig is =
                                                             ( print ("Setting amScale = " ^ v ^ "\n")
                                                             ; readLines is {amScale = rv,
                                                                             band = bd, beam = bm}))
-                          | ["--band", v] => (case Int.fromString v of
+                          | ["--max_active", v] => (case Int.fromString v of
                                                   NONE => readLines is acc
                                                 | SOME iv => 
                                                   ( print ("Setting band = " ^ v ^ "\n")
@@ -86,15 +86,13 @@ fun doNonEps (cfg: config, am, fst) (mfc, pl) =
        List.concat 
            (map (fn p =>
                     let
-                        val outArcs = Fst.stateArcs (fst, pEnd p)
+                        val outArcs = Fst.stateNonEpsArcs (fst, pEnd p)
                     in
-                        List.mapPartial
+                        List.map
                             (fn a =>
-                                if Fst.arcIsEpsilon a
-                                then NONE
-                                else SOME (pathExtend (p, a,
-                                                       (~amScale * logProb (Fst.arcILabel a - 1)))))
-                            (Util.vectorSliceToList outArcs)
+                                (pathExtend (p, a,
+                                             (~amScale * logProb (Fst.arcILabel a - 1)))))
+                            outArcs
                     end)
                    pl)
    end
@@ -114,14 +112,12 @@ fun doEps fst pl =
                    else ( IntHashTable.insert ht (pEnd np, np)
                         ; doPath np)
         and doArc p a =
-            if (not o Fst.arcIsEpsilon) a
-            then ()
-            else insertIfBetter (pathExtend (p, a, 0.0))
+            insertIfBetter (pathExtend (p, a, 0.0))
         and doPath p =
             let
                 val e = pEnd p
             in
-                VectorSlice.app (doArc p) (Fst.stateArcs (fst, e))
+                List.app (doArc p) (Fst.stateEpsArcs (fst, e))
             end         
     in
         ( app insertIfBetter pl

@@ -34,7 +34,7 @@ type arc = {
 type fst = {
     header : header,
     states : state vector,
-    arcs : arc vector
+    arcs : (arc list * arc list) vector
 }
 
 val magic = 0w2125659606
@@ -46,6 +46,13 @@ val alignment = 16
 
 (* any better way? *)
 val baseRealToReal = Real.fromLarge IEEEReal.TO_NEAREST o Real32.toLarge
+
+fun arcDest (arc: arc) = #dest arc
+fun arcILabel (arc: arc) = #ilabel arc
+fun arcOLabel (arc: arc) = #olabel arc
+fun arcWeight (arc: arc) = baseRealToReal (#weight arc)
+
+fun arcIsEpsilon a = arcILabel a = 0    
 
 fun readFstString is =
     let
@@ -148,8 +155,22 @@ fun readArc is =
         }
     end
 
-fun readArcs (is, fh:header ) = 
-    Vector.tabulate (#numArcs fh, fn _ => readArc is)
+fun readArcs (is, fh:header, states) = 
+    let
+        val allArcs = Vector.tabulate (#numArcs fh, fn _ => readArc is)
+                                      
+        fun stateArcs st =
+            let
+                val state = Vector.sub (states, st)
+                val allStateArcs = Util.vectorSliceToList (VectorSlice.slice (allArcs, #pos state, SOME (#narcs state)))
+                val nonEpsArcs = List.filter (not o arcIsEpsilon) allStateArcs
+                val epsArcs = List.filter arcIsEpsilon allStateArcs
+            in
+                (nonEpsArcs, epsArcs)
+            end
+    in
+        Vector.tabulate (#numStates fh, stateArcs)
+    end
 
 fun readFst is =
     let
@@ -158,7 +179,7 @@ fun readFst is =
         val hpad = alignUp (is, fh)
         val states = readStates (is, fh)
         val spad = alignUp (is, fh)
-        val arcs = readArcs (is, fh)
+        val arcs = readArcs (is, fh, states)
     in
         if not (BinIO.endOfStream is)
         then raise BadFile "extra material after end of fst"
@@ -187,20 +208,18 @@ fun stateFinalWeight (fst: fst, sid) =
 fun stateIsFinal (fst: fst, sid) =
     Real.isFinite (stateFinalWeight (fst, sid))
 
-fun stateArcs (fst: fst, sid) =
+fun stateNonEpsArcs (fst: fst, sid) =
     let
-        val states = #states fst
-        val arcs = #arcs fst
-        val state = Vector.sub (states, sid)
+        val (ne, e) = Vector.sub (#arcs fst, sid)
     in
-        VectorSlice.slice (arcs, #pos state, SOME (#narcs state))
+        ne
     end
 
-fun arcDest (arc: arc) = #dest arc
-fun arcILabel (arc: arc) = #ilabel arc
-fun arcOLabel (arc: arc) = #olabel arc
-fun arcWeight (arc: arc) = baseRealToReal (#weight arc)
-
-fun arcIsEpsilon a = arcILabel a = 0    
+fun stateEpsArcs (fst: fst, sid) = 
+    let
+        val (ne, e) = Vector.sub (#arcs fst, sid)
+    in
+        e
+    end
 
 end
