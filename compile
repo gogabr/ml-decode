@@ -1,3 +1,0 @@
-#!/bin/bash
-mlton -cc-opt '-O3 -ffast-math' -codegen c -const 'MLton.safe false' test.mlb
-
