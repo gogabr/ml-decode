@@ -20,43 +20,36 @@ val defaultConfig = {
     beam = 16.0
 }
 
-fun readConfig is =
+fun processConfig tokenizedLines =
     let
-        fun readLines is acc =
+        fun processLine (tokens, acc) =
             let
                 val {amScale = ams, band = bd, beam = bm} = acc
             in
-                case TextIO.inputLine is of
-                    NONE => acc
-                 |  SOME l =>
-                    let
-                        val tokens = String.tokens (fn c => Char.isSpace c orelse c = #"=") l
-                    in
-                        case tokens of
-                            ["--acoustic_scale", v] => (case Real.fromString v of
-                                                            NONE => readLines is acc
-                                                         |  SOME rv =>
-                                                            ( print ("Setting amScale = " ^ v ^ "\n")
-                                                            ; readLines is {amScale = rv,
-                                                                            band = bd, beam = bm}))
-                          | ["--max_active", v] => (case Int.fromString v of
-                                                  NONE => readLines is acc
-                                                | SOME iv => 
-                                                  ( print ("Setting band = " ^ v ^ "\n")
-                                                  ; readLines is {amScale = ams,
-                                                                  band = iv,
-                                                                  beam = bm}))
-                          | ["--beam", v] => (case Real.fromString v of
-                                                  NONE => readLines is acc
-                                                | SOME rv => 
-                                                  (print ("Setting beam = " ^ v ^ "\n")
-                                                  ; readLines is {amScale = ams, band = bd,
-                                                                  beam = rv}))
-                          | _ => readLines is acc
-                    end
+                case tokens of
+                    ["--acoustic_scale", v] => (case Real.fromString v of
+                                                    NONE => acc
+                                                 |  SOME rv =>
+                                                    ( print ("Setting amScale = " ^ v ^ "\n")
+                                                    ; {amScale = rv,
+                                                       band = bd, beam = bm}))
+                  | ["--max_active", v] => (case Int.fromString v of
+                                                NONE => acc
+                                              | SOME iv => 
+                                                ( print ("Setting band = " ^ v ^ "\n")
+                                                ;  {amScale = ams,
+                                                    band = iv,
+                                                    beam = bm}))
+                  | ["--beam", v] => (case Real.fromString v of
+                                          NONE => acc
+                                        | SOME rv => 
+                                          (print ("Setting beam = " ^ v ^ "\n")
+                                          ;  {amScale = ams, band = bd,
+                                              beam = rv}))
+                  | _ => acc
             end
     in
-        readLines is defaultConfig
+        foldl processLine defaultConfig tokenizedLines
     end
                                                
 

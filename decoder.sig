@@ -4,7 +4,7 @@ sig
 
     val defaultConfig: config
 
-    val readConfig: TextIO.instream -> config
+    val processConfig: string list list -> config
 
     val decode: (config * AcousticModel.t * Fst.fst * string vector) 
                 -> Mfc.mfc list 
