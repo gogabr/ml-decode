@@ -12,4 +12,4 @@ run:
 	./test $(HOME)/data/models/config.txt ./config.txt
 
 clean: 
-	rm test
+	rm -f test

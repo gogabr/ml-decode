@@ -11,8 +11,10 @@ type config = {
 
 datatype path = Path of int * int * Fst.arc list * real
 
-structure IntBinaryMap = BinaryMapFn(open Int
-                                     type ord_key = int)
+structure RealArrayQSort = ArrayQSortFn(open RealArray
+                                        type elem = real
+                                        type array = RealArray.array
+                                        type vector = RealVector.vector)
 
 val defaultConfig = {
     amScale = 0.0571428571429,
@@ -133,25 +135,21 @@ fun prune (cfg: config) pl =
             end
         else
             let 
-                val plArr = Array.fromList pl
+                val wArr = RealArray.array (len, 0.0)
+                val _ = List.foldl (fn (p, i) =>
+                                        ( RealArray.update (wArr, i, pWeight p)
+                                        ; i+1))
+                                   0
+                                   pl
             in
-                if Array.length plArr < band
-                then pl
-                else 
-                    ( ArrayQSort.sort pCompare plArr
-                    ; let
-                        val topScore = pWeight (Array.sub (plArr, 0))
-                        val botScore = pWeight (Array.sub (plArr, band - 1))
-                    in
-                        if botScore - topScore < beam
-                        then List.tabulate (band, fn i => Array.sub (plArr, i))
-                        else case Array.findi (fn (_, p) => 
-                                                  pWeight p - topScore >= beam) 
-                                              plArr of
-                                 NONE => raise Fail "prune: failure after sort"
-                               | SOME (bix, _) =>
-                                 List.tabulate (bix - 1, fn i => Array.sub (plArr, i))
-                    end)
+                ( RealArrayQSort.sort Real.compare wArr
+                ; let
+                    val topScore = RealArray.sub (wArr, 0)
+                    val botScore = RealArray.sub (wArr, band - 1)
+                    val cutoff = Real.min (topScore + beam, botScore)
+                  in
+                      List.filter (fn p => pWeight p <= cutoff) pl
+                  end)
             end
     end
 
