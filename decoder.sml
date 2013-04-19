@@ -122,25 +122,37 @@ fun prune (cfg: config) pl =
         val band = #band cfg
         val beam = #beam cfg
 
-        val plArr = Array.fromList pl
+        val len = length pl
     in
-        if Array.length plArr < band
-        then pl
-        else 
-            ( ArrayQSort.sort pCompare plArr
-            ; let
-                 val topScore = pWeight (Array.sub (plArr, 0))
-                 val botScore = pWeight (Array.sub (plArr, band - 1))
-              in
-                  if botScore - topScore < beam
-                  then List.tabulate (band, fn i => Array.sub (plArr, i))
-                  else case Array.findi (fn (_, p) => 
-                                            pWeight p - topScore >= beam) 
-                                        plArr of
-                           NONE => raise Fail "prune: failure after sort"
-                         | SOME (bix, _) =>
-                           List.tabulate (bix - 1, fn i => Array.sub (plArr, i))
-              end)
+        if len < band
+        then
+            let
+                val topScore = foldl (fn (p, mPrev) => Real.min (mPrev, pWeight p)) Real.posInf pl
+            in
+                List.filter (fn p => pWeight p < topScore + beam) pl
+            end
+        else
+            let 
+                val plArr = Array.fromList pl
+            in
+                if Array.length plArr < band
+                then pl
+                else 
+                    ( ArrayQSort.sort pCompare plArr
+                    ; let
+                        val topScore = pWeight (Array.sub (plArr, 0))
+                        val botScore = pWeight (Array.sub (plArr, band - 1))
+                    in
+                        if botScore - topScore < beam
+                        then List.tabulate (band, fn i => Array.sub (plArr, i))
+                        else case Array.findi (fn (_, p) => 
+                                                  pWeight p - topScore >= beam) 
+                                              plArr of
+                                 NONE => raise Fail "prune: failure after sort"
+                               | SOME (bix, _) =>
+                                 List.tabulate (bix - 1, fn i => Array.sub (plArr, i))
+                    end)
+            end
     end
 
 fun vtIniState (cfg: config, fst) =
