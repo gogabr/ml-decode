@@ -6,7 +6,8 @@ open Iterate
 type config = {
     amScale: real,
     band: int,
-    beam: real
+    beam: real,
+    beamStep: real
 }
 
 datatype path = Path of int * int * Fst.arc list * real
@@ -22,37 +23,46 @@ structure RAS = RealArraySlice
 val defaultConfig = {
     amScale = 0.0571428571429,
     band = 8000,
-    beam = 16.0
+    beam = 16.0,
+    beamStep = 0.5
 }
 
 fun processConfig tokenizedLines =
     let
-        fun processLine (tokens, acc) =
-            let
-                val {amScale = ams, band = bd, beam = bm} = acc
-            in
-                case tokens of
-                    ["--acoustic_scale", v] => (case Real.fromString v of
-                                                    NONE => acc
-                                                 |  SOME rv =>
-                                                    ( print ("Setting amScale = " ^ v ^ "\n")
-                                                    ; {amScale = rv,
-                                                       band = bd, beam = bm}))
-                  | ["--max_active", v] => (case Int.fromString v of
+        fun processLine (tokens, 
+                         acc as {amScale, band, beam, beamStep}) =
+            case tokens of
+                ["--acoustic_scale", v] => (case Real.fromString v of
                                                 NONE => acc
-                                              | SOME iv => 
-                                                ( print ("Setting band = " ^ v ^ "\n")
-                                                ;  {amScale = ams,
-                                                    band = iv,
-                                                    beam = bm}))
-                  | ["--beam", v] => (case Real.fromString v of
-                                          NONE => acc
-                                        | SOME rv => 
-                                          (print ("Setting beam = " ^ v ^ "\n")
-                                          ;  {amScale = ams, band = bd,
-                                              beam = rv}))
-                  | _ => acc
-            end
+                                             |  SOME rv =>
+                                                ( print ("Setting amScale = " ^ v ^ "\n")
+                                                ; {amScale = rv,
+                                                   band = band, 
+                                                   beam = beam,
+                                                   beamStep = beamStep}))
+              | ["--max_active", v] => (case Int.fromString v of
+                                            NONE => acc
+                                          | SOME iv => 
+                                            ( print ("Setting band = " ^ v ^ "\n")
+                                            ;  {amScale = amScale,
+                                                band = iv,
+                                                beam = beam,
+                                                beamStep = beamStep}))
+              | ["--beam", v] => (case Real.fromString v of
+                                      NONE => acc
+                                    | SOME rv => 
+                                      ( print ("Setting beam = " ^ v ^ "\n")
+                                      ;  {amScale = amScale, band = band,
+                                          beam = rv,
+                                          beamStep = beamStep}))
+              | ["--beam_step", v] => (case Real.fromString v of
+                                           NONE => acc
+                                         | SOME rv => ( print ("setting beamStep = " ^ v ^ "\n")
+                                                      ; {amScale = amScale, band = band,
+                                                         beam = beam,
+                                                         beamStep = rv}))
+
+              | _ => acc
     in
         foldl processLine defaultConfig tokenizedLines
     end
@@ -76,51 +86,51 @@ fun pathExtend (Path (s, e, oas, w), na, auxw) =
          (na :: oas),
          (w + Fst.arcWeight na + auxw))
 
-fun doNonEps (cfg: config, am, fst) (mfc, pl) =
+fun doArcs (cfg: config, am, fst) (mfc, (beam, pl)) =
    let 
        val amScale = #amScale cfg
+       val beamStep = #beamStep cfg
        val logProb = AcousticModel.memoizeLogProb (am, mfc)
-   in
-       Vector.concat 
-           (map (fn p =>
-                    let
-                        val outArcs = Fst.stateNonEpsArcs (fst, pEnd p)
-                    in
-                        Vector.map
-                            (fn a =>
-                                (pathExtend (p, a,
-                                             (~amScale * logProb (Fst.arcILabel a - 1)))))
-                            outArcs
-                    end)
-                   pl)
-   end
 
-fun doEps fst pl =
-    let
-        val ht = IntHashTable.mkTable (8000, Fail "hash")
+       val ht = IntHashTable.mkTable (8000, Fail "hash")
 
-        fun insertIfBetter np = 
-            case IntHashTable.find ht (pEnd np) of
-                NONE => 
-                   ( IntHashTable.insert ht (pEnd np, np)
-                   ; doPath np)
-             |  SOME oldp =>
-                   if pLess (oldp, np)
-                   then ()
-                   else ( IntHashTable.insert ht (pEnd np, np)
-                        ; doPath np)
-        and doArc p a =
+       fun doNonEpsArc (p, a) =
+           let
+               val np = pathExtend (p, a,
+                                    (~amScale * logProb (Fst.arcILabel a - 1)))
+           in
+               insertIfBetter np
+           end
+       and insertIfBetter np = 
+           case IntHashTable.find ht (pEnd np) of
+               NONE => 
+                 ( IntHashTable.insert ht (pEnd np, np)
+                 ; doEpsArcsForPath np)
+            |  SOME oldp =>
+                 if pLess (oldp, np)
+                 then ()
+                 else ( IntHashTable.insert ht (pEnd np, np)
+                      ; doEpsArcsForPath np)
+        and doEpsArc p a =
             insertIfBetter (pathExtend (p, a, 0.0))
-        and doPath p =
+        and doEpsArcsForPath p =
             let
                 val e = pEnd p
             in
-                Vector.app (doArc p) (Fst.stateEpsArcs (fst, e))
+                Vector.app (doEpsArc p) (Fst.stateEpsArcs (fst, e))
             end         
-    in
-        ( Vector.app insertIfBetter pl
-        ; IntHashTable.listItems ht)
-    end
+   in
+       ( app (fn p =>
+                 let
+                     val outArcs = Fst.stateNonEpsArcs (fst, pEnd p)
+                 in
+                     Vector.app
+                         (fn a => doNonEpsArc (p, a))
+                         outArcs
+                 end)
+             pl
+       ; IntHashTable.listItems ht)
+   end
 
 fun prune (cfg: config) pl =
     let
@@ -133,8 +143,10 @@ fun prune (cfg: config) pl =
         then
             let
                 val topScore = foldl (fn (p, mPrev) => Real.min (mPrev, pWeight p)) Real.posInf pl
+                val resPl = List.filter (fn p => pWeight p < topScore + beam) pl
+                val botScore = foldl (fn (p, mPrev) => Real.max (mPrev, pWeight p)) Real.negInf resPl
             in
-                List.filter (fn p => pWeight p < topScore + beam) pl
+                (botScore - topScore, resPl)
             end
         else
             let 
@@ -151,16 +163,48 @@ fun prune (cfg: config) pl =
                     val botScore = RA.sub (wArr, band)
                     val cutoff = Real.min (topScore + beam, botScore)
                   in
-                      List.filter (fn p => pWeight p <= cutoff) pl
+                      (cutoff - topScore, List.filter (fn p => pWeight p <= cutoff) pl)
                   end)
             end
     end
 
-fun vtIniState (cfg: config, fst) =
-   (prune cfg o doEps fst o Vector.fromList) [zeroPath fst]
+(* Too much code copying from doArcs. Need to merge *)
+fun doEps fst p =
+    let
+        val ht = IntHashTable.mkTable (8000, Fail "hash")
 
-fun vtStep (cfg: config, am, fst) (mfc, pl) =
-   (prune cfg o doEps fst o doNonEps (cfg, am, fst)) (mfc, pl)
+        fun insertIfBetter np = 
+            case IntHashTable.find ht (pEnd np) of
+                NONE => 
+                   ( IntHashTable.insert ht (pEnd np, np)
+                   ; doEpsArcsForPath np)
+             |  SOME oldp =>
+                   if pLess (oldp, np)
+                   then ()
+                   else ( IntHashTable.insert ht (pEnd np, np)
+                        ; doEpsArcsForPath np)
+        and doEpsArc p a =
+            insertIfBetter (pathExtend (p, a, 0.0))
+        and doEpsArcsForPath p =
+            let
+                val e = pEnd p
+            in
+                Vector.app (doEpsArc p) (Fst.stateEpsArcs (fst, e))
+            end         
+    in
+        ( insertIfBetter p
+        ; IntHashTable.listItems ht)
+    end
+
+fun vtIniState (cfg: config, fst) =
+    let 
+        val (_, pl) = (prune cfg o doEps fst) (zeroPath fst)
+    in
+        (#beam cfg, pl)
+    end
+
+fun vtStep (cfg: config, am, fst) (arg as (mfc, (beam, pl))) =
+   (prune cfg o doArcs (cfg, am, fst)) arg
 
 fun viterbi (cfg: config, am, fst) mfcl =
    foldl (vtStep (cfg, am, fst))
@@ -187,6 +231,10 @@ fun pOutputs wl p =
                     (rev (pArcs p)))
 
 fun decode (cfg: config, am, fst, wl) mfcl =
-   (pOutputs wl o backtrack fst o viterbi (cfg, am, fst)) mfcl
+    let 
+        val (_, rpl) = viterbi (cfg, am, fst) mfcl
+    in
+        (pOutputs wl o backtrack fst) rpl
+    end
 
 end
