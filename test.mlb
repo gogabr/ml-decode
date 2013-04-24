@@ -5,6 +5,9 @@
 /usr/lib/mlton/sml/smlnj-lib/Util/iterate-sig.sml
 /usr/lib/mlton/sml/smlnj-lib/Util/iterate.sml
 
+mono-partition.sig
+mono-partition-fun.sml
+
 util.sig
 util.sml
 
