@@ -16,6 +16,9 @@ structure RealArrayPartition = MonoPartitionFn(open RealArray
                                                type array = RealArray.array
                                                type vector = RealVector.vector)
 
+structure RA = RealArray
+structure RAS = RealArraySlice
+
 val defaultConfig = {
     amScale = 0.0571428571429,
     band = 8000,
@@ -135,17 +138,17 @@ fun prune (cfg: config) pl =
             end
         else
             let 
-                val wArr = RealArray.array (len, 0.0)
+                val wArr = RA.array (len, 0.0)
                 val _ = List.foldl (fn (p, i) =>
-                                        ( RealArray.update (wArr, i, pWeight p)
+                                        ( RA.update (wArr, i, pWeight p)
                                         ; i+1))
                                    0
                                    pl
             in
                 ( RealArrayPartition.partition Real.compare (wArr, band)
                 ; let
-                    val topScore = RealArray.sub (wArr, 0)
-                    val botScore = RealArray.sub (wArr, band)
+                    val topScore = RAS.foldl Real.min Real.posInf (RAS.slice (wArr, 0, SOME band))
+                    val botScore = RA.sub (wArr, band)
                     val cutoff = Real.min (topScore + beam, botScore)
                   in
                       List.filter (fn p => pWeight p <= cutoff) pl
