@@ -126,7 +126,7 @@ fun prune (cfg: config) pl =
 
         val len = length pl
     in
-        if len < band
+        if len <= band
         then
             let
                 val topScore = foldl (fn (p, mPrev) => Real.min (mPrev, pWeight p)) Real.posInf pl
@@ -145,7 +145,7 @@ fun prune (cfg: config) pl =
                 ( RealArrayQSort.sort Real.compare wArr
                 ; let
                     val topScore = RealArray.sub (wArr, 0)
-                    val botScore = RealArray.sub (wArr, band - 1)
+                    val botScore = RealArray.sub (wArr, band)
                     val cutoff = Real.min (topScore + beam, botScore)
                   in
                       List.filter (fn p => pWeight p <= cutoff) pl
