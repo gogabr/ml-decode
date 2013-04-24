@@ -89,17 +89,23 @@ fun pathExtend (Path (s, e, oas, w), na, auxw) =
 fun doArcs (cfg: config, am, fst) (mfc, (beam, pl)) =
    let 
        val amScale = #amScale cfg
-       val beamStep = #beamStep cfg
+       val beamLimit = #beamStep cfg + beam
        val logProb = AcousticModel.memoizeLogProb (am, mfc)
 
        val ht = IntHashTable.mkTable (8000, Fail "hash")
 
-       fun doNonEpsArc (p, a) =
+       fun pIsViable (topScore, p) =
+           pWeight p - topScore <  beamLimit
+
+       fun doNonEpsArc (p, a, topSoFar) =
            let
                val np = pathExtend (p, a,
                                     (~amScale * logProb (Fst.arcILabel a - 1)))
            in
-               insertIfBetter np
+               if pIsViable (topSoFar, np)
+               then ( insertIfBetter np
+                    ; Real.min (topSoFar, pWeight np))
+               else topSoFar
            end
        and insertIfBetter np = 
            case IntHashTable.find ht (pEnd np) of
@@ -120,15 +126,15 @@ fun doArcs (cfg: config, am, fst) (mfc, (beam, pl)) =
                 Vector.app (doEpsArc p) (Fst.stateEpsArcs (fst, e))
             end         
    in
-       ( app (fn p =>
-                 let
-                     val outArcs = Fst.stateNonEpsArcs (fst, pEnd p)
-                 in
-                     Vector.app
-                         (fn a => doNonEpsArc (p, a))
-                         outArcs
-                 end)
-             pl
+       ( foldl (fn (p, topSoFar) =>
+                   let
+                       val outArcs = Fst.stateNonEpsArcs (fst, pEnd p)
+                   in
+                       Vector.foldl
+                           (fn (a, topSoFar') => doNonEpsArc (p, a, topSoFar'))
+                           topSoFar outArcs
+                   end)
+               Real.posInf pl
        ; IntHashTable.listItems ht)
    end
 
