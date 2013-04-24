@@ -11,10 +11,10 @@ type config = {
 
 datatype path = Path of int * int * Fst.arc list * real
 
-structure RealArrayQSort = ArrayQSortFn(open RealArray
-                                        type elem = real
-                                        type array = RealArray.array
-                                        type vector = RealVector.vector)
+structure RealArrayPartition = MonoPartitionFn(open RealArray
+                                               type elem = real
+                                               type array = RealArray.array
+                                               type vector = RealVector.vector)
 
 val defaultConfig = {
     amScale = 0.0571428571429,
@@ -126,7 +126,7 @@ fun prune (cfg: config) pl =
 
         val len = length pl
     in
-        if len < band
+        if len <= band
         then
             let
                 val topScore = foldl (fn (p, mPrev) => Real.min (mPrev, pWeight p)) Real.posInf pl
@@ -142,10 +142,10 @@ fun prune (cfg: config) pl =
                                    0
                                    pl
             in
-                ( RealArrayQSort.sort Real.compare wArr
+                ( RealArrayPartition.partition Real.compare (wArr, band)
                 ; let
                     val topScore = RealArray.sub (wArr, 0)
-                    val botScore = RealArray.sub (wArr, band - 1)
+                    val botScore = RealArray.sub (wArr, band)
                     val cutoff = Real.min (topScore + beam, botScore)
                   in
                       List.filter (fn p => pWeight p <= cutoff) pl
