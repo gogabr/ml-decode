@@ -1,0 +1,11 @@
+--acoustic_model=/home/gogabr/data/models/final.mdl
+--fst=/home/gogabr/data/models/HCLG-const.fst
+--word_list=/home/gogabr/data/models/word_table.txt
+--source=/home/gogabr/data/wav8/filmy8.mfcd
+--source=/home/gogabr/data/wav8/moskva8.mfcd
+--source=/home/gogabr/data/wav8/filmy8.mfcd
+--source=/home/gogabr/data/wav8/moskva8.mfcd
+--source=/home/gogabr/data/wav8/filmy8.mfcd
+--source=/home/gogabr/data/wav8/moskva8.mfcd
+--source=/home/gogabr/data/wav8/filmy8.mfcd
+
