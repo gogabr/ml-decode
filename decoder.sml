@@ -94,19 +94,22 @@ fun doArcs (cfg: config, am, fst) (mfc, (beam, pl)) =
 
        val ht = IntHashTable.mkTable (8000, Fail "hash")
 
-       fun pIsViable (topScore, p) =
-           pWeight p - topScore <  beamLimit
+       fun scoreIsViable (score, topScore) =
+           score - topScore <  beamLimit
 
        fun doNonEpsArc (p, a, topSoFar) =
-           let
-               val np = pathExtend (p, a,
-                                    (~amScale * logProb (Fst.arcILabel a - 1)))
-           in
-               if pIsViable (topSoFar, np)
-               then ( insertIfBetter np
-                    ; Real.min (topSoFar, pWeight np))
-               else topSoFar
-           end
+           if scoreIsViable (pWeight p + Fst.arcWeight a, topSoFar)
+           then
+               let
+                   val np = pathExtend (p, a,
+                                        (~amScale * logProb (Fst.arcILabel a - 1)))
+               in
+                   if scoreIsViable (pWeight np, topSoFar)
+                   then ( insertIfBetter np
+                        ; Real.min (topSoFar, pWeight np))
+                   else topSoFar
+               end
+           else topSoFar
        and insertIfBetter np = 
            case IntHashTable.find ht (pEnd np) of
                NONE => 
