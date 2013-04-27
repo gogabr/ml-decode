@@ -1,29 +1,40 @@
-/usr/lib/mlton/sml/basis/basis.mlb
-/usr/lib/mlton/sml/basis/unsafe.mlb
+ann
+    "allowFFI true"
+in
+    $(SML_LIB)/basis/basis.mlb
+    $(SML_LIB)/basis/unsafe.mlb
+    $(SML_LIB)/basis/c-types.mlb
 
-/usr/lib/mlton/sml/smlnj-lib/Util/smlnj-lib.mlb
-/usr/lib/mlton/sml/smlnj-lib/Util/iterate-sig.sml
-/usr/lib/mlton/sml/smlnj-lib/Util/iterate.sml
+    $(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
+    $(SML_LIB)/smlnj-lib/Util/iterate-sig.sml
+    $(SML_LIB)/smlnj-lib/Util/iterate.sml
 
-mono-partition.sig
-mono-partition-fun.sml
+    mono-partition.sig
+    mono-partition-fun.sml
 
-util.sig
-util.sml
+    util.sig 
+    util.sml
 
-read-bin.sig
-kaldi-input.sig
-acoustic-model.sig
-fst.sig
-mfc.sig
+    read-bin.sig
+    read-bin.sml
 
-read-bin.sml
-kaldi-input.sml
-acoustic-model.sml
-fst.sml
-mfc.sml
+    kaldi-input.sig
+    kaldi-input.sml
 
-decoder.sig
-decoder.sml
+    mfc.sig
+    mfc.sml
 
-test.sml
+    kaldi-funs.sig
+    kaldi-funs.sml
+
+    acoustic-model.sig
+    fst.sig
+
+    acoustic-model.sml
+    fst.sml
+
+    decoder.sig
+    decoder.sml
+
+    test.sml
+end

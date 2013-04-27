@@ -99,7 +99,7 @@ let
         let
             val timerReal = Timer.startRealTimer ()
             
-            val mfcs = wrapBinFile (Mfc.subCmn o Mfc.read) mfcFname
+            val mfcs = (Mfc.subCmn o KaldiFuns.computeMfccFile) mfcFname
             val nframes = length mfcs
 
         in
