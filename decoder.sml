@@ -7,7 +7,7 @@ type config = {
     amScale: real,
     band: int,
     beam: real,
-    beamStep: real
+    beamDelta: real
 }
 
 datatype path = Path of int * int * Fst.arc list * real
@@ -24,13 +24,13 @@ val defaultConfig = {
     amScale = 0.0571428571429,
     band = 8000,
     beam = 16.0,
-    beamStep = 0.5
+    beamDelta = 0.5
 }
 
 fun processConfig tokenizedLines =
     let
         fun processLine (tokens, 
-                         acc as {amScale, band, beam, beamStep}) =
+                         acc as {amScale, band, beam, beamDelta}) =
             case tokens of
                 ["--acoustic_scale", v] => (case Real.fromString v of
                                                 NONE => acc
@@ -39,7 +39,7 @@ fun processConfig tokenizedLines =
                                                 ; {amScale = rv,
                                                    band = band, 
                                                    beam = beam,
-                                                   beamStep = beamStep}))
+                                                   beamDelta = beamDelta}))
               | ["--max_active", v] => (case Int.fromString v of
                                             NONE => acc
                                           | SOME iv => 
@@ -47,20 +47,20 @@ fun processConfig tokenizedLines =
                                             ;  {amScale = amScale,
                                                 band = iv,
                                                 beam = beam,
-                                                beamStep = beamStep}))
+                                                beamDelta = beamDelta}))
               | ["--beam", v] => (case Real.fromString v of
                                       NONE => acc
                                     | SOME rv => 
                                       ( print ("Setting beam = " ^ v ^ "\n")
                                       ;  {amScale = amScale, band = band,
                                           beam = rv,
-                                          beamStep = beamStep}))
-              | ["--beam_step", v] => (case Real.fromString v of
+                                          beamDelta = beamDelta}))
+              | ["--beam_delta", v] => (case Real.fromString v of
                                            NONE => acc
-                                         | SOME rv => ( print ("setting beamStep = " ^ v ^ "\n")
+                                         | SOME rv => ( print ("setting beamDelta = " ^ v ^ "\n")
                                                       ; {amScale = amScale, band = band,
                                                          beam = beam,
-                                                         beamStep = rv}))
+                                                         beamDelta = rv}))
 
               | _ => acc
     in
@@ -72,6 +72,9 @@ fun pStart (Path (s,_,_,_)) = s
 fun pEnd (Path (_,e,_,_)) = e
 fun pArcs (Path (_,_,arcs,_)) = arcs
 fun pWeight (Path (_,_,_,w)) = w
+
+(* Used in folds as worst possible value *)
+val dummyPath = Path (0, 0, [], Real.posInf)
 
 fun pCompare (Path (_,_,_,w1), Path (_,_,_,w2)) = Real.compare (w1, w2)
 fun pLess (Path (_,_,_,w1), Path (_,_,_,w2)) = w1 < w2
@@ -86,30 +89,41 @@ fun pathExtend (Path (s, e, oas, w), na, auxw) =
          (na :: oas),
          (w + Fst.arcWeight na + auxw))
 
-fun doArcs (cfg: config, am, fst) (mfc, (beam, pl)) =
+fun doArcs (cfg: config, am, fst) (mfc, (topPath, adaptiveBeam, pl)) =
    let 
        val amScale = #amScale cfg
-       val beamLimit = #beamStep cfg + beam
        val logProb = AcousticModel.memoizeLogProb (am, mfc)
 
        val ht = IntHashTable.mkTable (8000, Fail "hash")
 
-       fun scoreIsViable (score, topScore) =
-           score - topScore <  beamLimit
+       val cutoff =
+           let
+               val bestOutgoingWeight =
+                       Vector.foldl (fn (a, old) => 
+                                        Real.min (old,
+                                                  Fst.arcWeight a +
+                                                  (~amScale * logProb (Fst.arcILabel a - 1))))
+                                    Real.posInf (Fst.stateNonEpsArcs (fst, pEnd topPath))
 
-       fun doNonEpsArc (p, a, topSoFar) =
-           if scoreIsViable (pWeight p + Fst.arcWeight a, topSoFar)
+           in
+               pWeight topPath + bestOutgoingWeight + adaptiveBeam
+           end
+
+       fun scoreIsViable score =
+           score <  cutoff
+                        
+       fun doNonEpsArc p a =
+           if scoreIsViable (pWeight p + Fst.arcWeight a)
            then
                let
                    val np = pathExtend (p, a,
                                         (~amScale * logProb (Fst.arcILabel a - 1)))
                in
-                   if scoreIsViable (pWeight np, topSoFar)
-                   then ( insertIfBetter np
-                        ; Real.min (topSoFar, pWeight np))
-                   else topSoFar
+                   if scoreIsViable (pWeight np)
+                   then insertIfBetter np
+                   else ()
                end
-           else topSoFar
+           else ()
        and insertIfBetter np = 
            case IntHashTable.find ht (pEnd np) of
                NONE => 
@@ -129,15 +143,13 @@ fun doArcs (cfg: config, am, fst) (mfc, (beam, pl)) =
                 Vector.app (doEpsArc p) (Fst.stateEpsArcs (fst, e))
             end         
    in
-       ( foldl (fn (p, topSoFar) =>
+       ( app (fn p =>
                    let
                        val outArcs = Fst.stateNonEpsArcs (fst, pEnd p)
                    in
-                       Vector.foldl
-                           (fn (a, topSoFar') => doNonEpsArc (p, a, topSoFar'))
-                           topSoFar outArcs
+                       Vector.app (doNonEpsArc p) outArcs
                    end)
-               Real.posInf pl
+             pl
        ; IntHashTable.listItems ht)
    end
 
@@ -145,17 +157,21 @@ fun prune (cfg: config) pl =
     let
         val band = #band cfg
         val beam = #beam cfg
+        val beamDelta = #beamDelta cfg
 
         val len = length pl
+
+        val topPath = foldl (fn (p, mPrev) =>
+                                if pWeight p < pWeight mPrev then p else mPrev)
+                            dummyPath pl
+        val topScore = pWeight topPath
     in
         if len <= band
         then
             let
-                val topScore = foldl (fn (p, mPrev) => Real.min (mPrev, pWeight p)) Real.posInf pl
                 val resPl = List.filter (fn p => pWeight p < topScore + beam) pl
-                val botScore = foldl (fn (p, mPrev) => Real.max (mPrev, pWeight p)) Real.negInf resPl
             in
-                (botScore - topScore, resPl)
+                (topPath, beam, resPl)
             end
         else
             let 
@@ -168,11 +184,11 @@ fun prune (cfg: config) pl =
             in
                 ( RealArrayPartition.partition Real.compare (wArr, band)
                 ; let
-                    val topScore = RAS.foldl Real.min Real.posInf (RAS.slice (wArr, 0, SOME band))
                     val botScore = RA.sub (wArr, band)
                     val cutoff = Real.min (topScore + beam, botScore)
+                    val adaptiveBeam = Real.min (beam, cutoff - topScore + beamDelta)
                   in
-                      (cutoff - topScore, List.filter (fn p => pWeight p <= cutoff) pl)
+                      (topPath, adaptiveBeam, List.filter (fn p => pWeight p <= cutoff) pl)
                   end)
             end
     end
@@ -206,13 +222,9 @@ fun doEps fst p =
     end
 
 fun vtIniState (cfg: config, fst) =
-    let 
-        val (_, pl) = (prune cfg o doEps fst) (zeroPath fst)
-    in
-        (#beam cfg, pl)
-    end
+    (prune cfg o doEps fst) (zeroPath fst)
 
-fun vtStep (cfg: config, am, fst) (arg as (mfc, (beam, pl))) =
+fun vtStep (cfg: config, am, fst) (arg as (mfc, (topPath, adaptiveBeam, pl))) =
    (prune cfg o doArcs (cfg, am, fst)) arg
 
 fun viterbi (cfg: config, am, fst) mfcl =
@@ -241,7 +253,7 @@ fun pOutputs wl p =
 
 fun decode (cfg: config, am, fst, wl) mfcl =
     let 
-        val (_, rpl) = viterbi (cfg, am, fst) mfcl
+        val (_, _, rpl) = viterbi (cfg, am, fst) mfcl
     in
         (pOutputs wl o backtrack fst) rpl
     end
