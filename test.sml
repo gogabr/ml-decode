@@ -121,3 +121,6 @@ let
 in
     app processMfcFile (#srcFnames config)
 end;
+
+print ("Hits: " ^ Int.toString (Util.memoizeHits ()) 
+       ^ ", misses " ^ Int.toString (Util.memoizeMisses ()) ^ "\n");
