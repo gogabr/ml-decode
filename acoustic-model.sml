@@ -307,7 +307,6 @@ fun memoizeLogProb (am, feas) =
         val memoFn = Util.memoizeSmall (Vector.length dgmms,
                                         fn dgmmId =>
                                            gmmLogProb (Vector.sub (dgmms, dgmmId), feas))
-
     in
         fn tid => 
            memoFn (tid2dgmmId (am, tid))
