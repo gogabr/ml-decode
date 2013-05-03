@@ -11,6 +11,7 @@ CCOPT := -O3 -ffast-math
 LDOPT := kaldi-interface.o \
 		 $(KALDI_DIR)/src/feat/kaldi-feature.a \
 	     $(KALDI_DIR)/src/matrix/kaldi-matrix.a \
+		 $(KALDI_DIR)/src/util/kaldi-util.a \
 	     $(KALDI_DIR)/src/base/kaldi-base.a \
 		 -L$(ATLAS_DIR)/build/install/lib \
 		 -llapack -lcblas -latlas \
