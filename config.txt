@@ -8,5 +8,6 @@
 --source=/home/gogabr/data/wav8/filmy8.wav
 --source=/home/gogabr/data/wav8/moskva8.wav
 --source=/home/gogabr/data/wav8/filmy8.wav
+--ctl=ctl
 
 

@@ -257,7 +257,7 @@ fun decode (cfg: config, am, fst, wl) mfcl =
     let 
         val (_, _, rpl) = viterbi (cfg, am, fst) mfcl
     in
-        (pOutputs wl o backtrack fst) rpl
+        String.concatWith " " ((pOutputs wl o backtrack fst) rpl)
     end
 
 end

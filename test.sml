@@ -46,6 +46,18 @@ local
         wlFname = "words.txt",
         srcFnames = []
     }
+
+    fun readCtl fname =
+        let
+            fun doLine acc is =
+                case TextIO.inputLine is of
+                    NONE => acc
+                  | SOME l => doLine (String.tokens Char.isSpace l @ acc) is
+
+            val linesRev = wrapTextFile (doLine []) fname
+        in
+            rev linesRev
+        end
                             
     fun processCfgLine (tcl, acc) =
         let
@@ -66,9 +78,14 @@ local
                                           srcFnames = srcFnames }
 
               | ["--source", sfn] => { amFname = amFname,
-                                            fstFname = fstFname,
-                                            wlFname = wlFname,
-                                            srcFnames = srcFnames @ [sfn]}
+                                       fstFname = fstFname,
+                                       wlFname = wlFname,
+                                       srcFnames = srcFnames @ [sfn]}
+
+              | ["--ctl", ctl] =>  { amFname = amFname,
+                                     fstFname = fstFname,
+                                     wlFname = wlFname,
+                                     srcFnames = srcFnames @ readCtl ctl}
               | _ => acc
         end
 
@@ -102,24 +119,29 @@ let
             val mfcs = (Mfc.subCmn o KaldiFuns.computeMfccFile) mfcFname
             val nframes = length mfcs
 
-        in
-            print (mfcFname ^ "; nframes: " ^ Int.toString nframes ^ "\n");
+            val decodeRes = Decoder.decode (decoderConfig, am, fst, wl) mfcs
 
-            app (fn w => print (w ^ " ")) 
-                (Decoder.decode (decoderConfig, am, fst, wl) mfcs);
-            print "\n";
-            let 
-                val realMsec = (Time.toMilliseconds o Timer.checkRealTimer) timerReal
-            in
-                print ("Time: real " 
-                       ^ (LargeInt.toString realMsec)
-                       ^ " msec; RTF "
-                       ^ (Real.toString (Real.fromLargeInt realMsec / 10.0 / Real.fromInt nframes))
-                       ^ "\n")
-            end
+            val realMsec = (Time.toMilliseconds o Timer.checkRealTimer) timerReal
+
+            (* This assumes that a frame is 10 msec *)
+            val rtf = Real.fromLargeInt realMsec / 10.0 / Real.fromInt nframes
+        in
+            (decodeRes, rtf)
         end
+
+    val (_, avgRtf) = 
+            foldl (fn (fname, (i, prtf)) =>
+                      let
+                          val (decodeRes, rtf) = processMfcFile fname
+                      in
+                          print (fname ^ ": " ^ decodeRes ^ "\n");
+                          print ("RTF: " ^ Real.toString rtf ^ "\n");
+                          (i+1, (prtf * real i + rtf) / real (i+1))
+                      end)
+                  (0, 0.0)
+                  (#srcFnames config)
 in
-    app processMfcFile (#srcFnames config)
+    print ("avg RTF " ^ Real.toString avgRtf ^ "\n")
 end;
 
 print ("Hits: " ^ Int.toString (Util.memoizeHits ()) 
