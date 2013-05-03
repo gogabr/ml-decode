@@ -253,9 +253,8 @@ fun tid2dgmmId (AcousticModel (TransitionModel tm, _), tid) =
         val id2state = #id2state tm
                                      
         val Triple tr = 
-            (Vector.sub (triples, Int32Vector.sub (id2state, tid) - 1))
+            Vector.sub (triples, Int32Vector.sub (id2state, tid) - 1)
     in
-        (**)(* print ("tid2dgmmId " ^ Int.toString tid ^ " = " ^ Int.toString (#pdf tr) ^ "\n"); *)
         #pdf tr
     end
 
@@ -266,7 +265,7 @@ fun gmmLogProb (DiagGmm dgmm, feas) =
         val consts = #consts dgmm
                              
         val (nmix, dim) = RealArray2.dimensions invVars
-                                                
+
         val prob = repeat 
                        (fn (m, acc) => 
                            acc +
@@ -291,8 +290,7 @@ fun gmmLogProb (DiagGmm dgmm, feas) =
     end
 
 
-fun logProb _ 0 feas = Real.negInf
-  | logProb am tid feas =
+fun logProb am tid feas =
     let
         val AcousticModel (_, dgmms) = am
                                            
@@ -306,15 +304,13 @@ fun memoizeLogProb (am, feas) =
     let
         val AcousticModel (_, dgmms) = am
 
-        val memoTab = RealVector.tabulate
-                          (Vector.length dgmms,
-                           fn dgmmId =>
-                              gmmLogProb (Vector.sub (dgmms, dgmmId), feas))
+        val memoFn = Util.memoizeSmall (Vector.length dgmms,
+                                        fn dgmmId =>
+                                           gmmLogProb (Vector.sub (dgmms, dgmmId), feas))
+
     in
         fn tid => 
-           if tid = 0 
-           then Real.negInf
-           else RealVector.sub (memoTab, tid2dgmmId (am, tid))
+           memoFn (tid2dgmmId (am, tid))
     end
 
 end

@@ -95,14 +95,14 @@ fun doArcs (cfg: config, am, fst) (mfc, (topPath, adaptiveBeam, pl)) =
        val logProb = AcousticModel.memoizeLogProb (am, mfc)
 
        val ht = IntHashTable.mkTable (8000, Fail "hash")
-
+                                     
        val cutoff =
            let
                val bestOutgoingWeight =
                        Vector.foldl (fn (a, old) => 
                                         Real.min (old,
                                                   Fst.arcWeight a +
-                                                  (~amScale * logProb (Fst.arcILabel a - 1))))
+                                                  (~amScale * logProb (Fst.arcILabel a))))
                                     Real.posInf (Fst.stateNonEpsArcs (fst, pEnd topPath))
 
            in
@@ -117,7 +117,7 @@ fun doArcs (cfg: config, am, fst) (mfc, (topPath, adaptiveBeam, pl)) =
            then
                let
                    val np = pathExtend (p, a,
-                                        (~amScale * logProb (Fst.arcILabel a - 1)))
+                                        (~amScale * logProb (Fst.arcILabel a)))
                in
                    if scoreIsViable (pWeight np)
                    then insertIfBetter np
@@ -135,7 +135,9 @@ fun doArcs (cfg: config, am, fst) (mfc, (topPath, adaptiveBeam, pl)) =
                  else ( IntHashTable.insert ht (pEnd np, np)
                       ; doEpsArcsForPath np)
         and doEpsArc p a =
-            insertIfBetter (pathExtend (p, a, 0.0))
+            if pWeight p + Fst.arcWeight a < cutoff
+            then insertIfBetter (pathExtend (p, a, 0.0))
+            else ()
         and doEpsArcsForPath p =
             let
                 val e = pEnd p
