@@ -9,7 +9,7 @@ val kaldiMfccFree = _import "kaldi_mfcc_free": C_Pointer.t -> unit;
 
 fun computeMfccFile fname =
     let
-        val mtx = kaldiComputeMfcc fname
+        val mtx = kaldiComputeMfcc (fname ^ "\000")
         val rows = kaldiMfccNumRows mtx
         val cols = kaldiMfccNumCols mtx
         val arr = RealArray.array (rows * cols, 0.0)
