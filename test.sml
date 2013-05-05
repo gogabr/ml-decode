@@ -112,11 +112,11 @@ print "Read model\n";
 
 
 let
-    fun processMfcFile mfcFname =
+    fun processFile fname =
         let
             val timerReal = Timer.startRealTimer ()
             
-            val mfcs = (Mfc.subCmn o KaldiFuns.computeMfccFile) mfcFname
+            val mfcs = (Mfc.subCmn o KaldiFuns.computeMfccFile) fname
             val nframes = length mfcs
 
             val decodeRes = Decoder.decode (decoderConfig, am, fst, wl) mfcs
@@ -126,22 +126,41 @@ let
             (* This assumes that a frame is 10 msec *)
             val rtf = Real.fromLargeInt realMsec / 10.0 / Real.fromInt nframes
         in
-            (decodeRes, rtf)
+            (decodeRes, nframes, realMsec)
         end
 
-    val (_, avgRtf) = 
-            foldl (fn (fname, (i, prtf)) =>
-                      let
-                          val (decodeRes, rtf) = processMfcFile fname
-                      in
-                          print (fname ^ ": " ^ decodeRes ^ "\n");
-                          print ("RTF: " ^ Real.toString rtf ^ "\n");
-                          (i+1, (prtf * real i + rtf) / real (i+1))
-                      end)
-                  (0, 0.0)
-                  (#srcFnames config)
+    fun doFileWithStats (fname, (minRtf, maxRtf, totFrames, totMsec)) =
+        let
+            val (decodeRes, nframes, msec) = processFile fname
+            val newTotFrames = totFrames + nframes
+            val newTotMsec = totMsec + msec
+                                           
+            fun rtf (nframes, msec) =
+                Real.fromLargeInt msec / 10.0 / Real.fromInt nframes
+                                                             
+            val thisRtf = rtf (nframes, msec)
+            val avgRtf = rtf (newTotFrames, newTotMsec)
+                             
+            val newMinRtf = Real.min (minRtf, thisRtf)
+            val newMaxRtf = Real.max (maxRtf, thisRtf)
+        in
+            print (fname ^ ": " ^ decodeRes ^ "\n");
+            print ("nframes " ^ Int.toString nframes 
+                   ^ " msec " ^ LargeInt.toString msec 
+                   ^ " RTF " ^ Real.toString thisRtf
+                   ^ "\n");
+            print ("total nframes " ^ Int.toString newTotFrames
+                   ^ " msec " ^ LargeInt.toString newTotMsec
+                   ^ "\n");
+            print ("RTF: " ^ Real.toString newMinRtf ^ " - " ^ Real.toString newMaxRtf
+                   ^ ", average " ^ Real.toString avgRtf
+                   ^ "\n");
+            (newMinRtf, newMaxRtf, newTotFrames, newTotMsec)
+        end
 in
-    print ("avg RTF " ^ Real.toString avgRtf ^ "\n")
+    foldl doFileWithStats
+          (Real.posInf, Real.negInf, 0, 0)
+          (#srcFnames config)
 end;
 
 print ("Hits: " ^ Int.toString (Util.memoizeHits ()) 
