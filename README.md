@@ -1,6 +1,7 @@
 This is a speech decoder written in Standard ML.
 It is compiled with MLton, and uses the Kaldi library (http://kaldi.sourceforge.net) 
-to convert .wav files into MFCC features.
+to convert .wav files into MFCC features. It also uses Kaldi's acoustic model files
+(transition model + diagonal GMM) and OpenFST's WFST format (const FST).
 The algorithm is state-equivalent to Kaldi's faster-decoder,
 and in my tests, works about 20% slower on a large vocabulary task (Russian geographical queries).
 
